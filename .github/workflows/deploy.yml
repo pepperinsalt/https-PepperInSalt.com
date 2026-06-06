@@ -99,6 +99,12 @@ jobs:
             </IfModule>
             EOF
 
+            # Fix permissions
+            find $APP -type d -exec chmod 755 {} \;
+            find $APP -type f -exec chmod 644 {} \;
+            chmod -R 775 $APP/storage $APP/bootstrap/cache
+            chmod 644 $HTDOCS/index.php $HTDOCS/.htaccess
+
             # Find PHP CLI binary (IONOS uses versioned paths)
             PHP=$(command -v php8.4 || command -v php8 || command -v php)
             echo "Using PHP: $PHP ($($PHP -r 'echo PHP_VERSION;' 2>/dev/null))"
