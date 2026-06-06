@@ -14,6 +14,9 @@ class ContentStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        // ⚡ Bolt: Extract max date to avoid duplicate database queries
+        $latestHealthDate = HealthRecord::max('recorded_date');
+
         return [
             Stat::make('Blog Posts', BlogPost::count())
                 ->description(BlogPost::where('status', 'published')->count().' published')
@@ -26,7 +29,7 @@ class ContentStatsWidget extends BaseWidget
                 ->color('success'),
 
             Stat::make('Health Entries', HealthRecord::count())
-                ->description('Last '.(HealthRecord::max('recorded_date') ? now()->diffInDays(HealthRecord::max('recorded_date')).' days tracked' : 'entry needed'))
+                ->description('Last '.($latestHealthDate ? now()->diffInDays($latestHealthDate).' days tracked' : 'entry needed'))
                 ->descriptionIcon('heroicon-m-heart')
                 ->color('warning'),
         ];
