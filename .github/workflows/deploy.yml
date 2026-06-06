@@ -109,9 +109,9 @@ jobs:
             PHP=$(command -v php8.4 || command -v php8 || command -v php)
             echo "Using PHP: $PHP ($($PHP -r 'echo PHP_VERSION;' 2>/dev/null))"
 
-            # Bootstrap .env from .env.production on first deploy
-            if [ ! -f "$APP/.env" ]; then
-              cp "$APP/.env.production" "$APP/.env"
+            # Bootstrap .env from .env.production (always sync non-secret values)
+            cp "$APP/.env.production" "$APP/.env"
+            if ! grep -q "APP_KEY=base64:" "$APP/.env"; then
               $PHP "$APP/artisan" key:generate --force
             fi
 
