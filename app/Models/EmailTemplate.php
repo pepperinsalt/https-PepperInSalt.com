@@ -28,8 +28,11 @@ class EmailTemplate extends Model
     public function render(array $data = []): string
     {
         $body = $this->body;
+        if (empty($body)) {
+            return (string) $body;
+        }
         foreach ($data as $key => $value) {
-            $body = str_replace("{{$key}}", $value, $body);
+            $body = preg_replace('/\{\{\s*'.preg_quote($key, '/').'\s*\}\}/', str_replace('$', '\$', (string) $value), $body);
         }
 
         return $body;
