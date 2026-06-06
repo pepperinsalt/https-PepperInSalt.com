@@ -120,14 +120,18 @@
     (function(){
         // Nav scroll
         var nav = document.getElementById('nav');
+        // ⚡ Bolt: Track scroll state to prevent redundant DOM updates and layout thrashing
+        var isScrolled = false;
         window.addEventListener('scroll', function(){
-            if(window.scrollY > 60){
+            if(window.scrollY > 60 && !isScrolled){
+                isScrolled = true;
                 nav.style.background = 'rgba(250,247,240,0.95)';
                 nav.style.backdropFilter = 'blur(20px)';
                 nav.style.boxShadow = '0 1px 0 rgba(13,10,7,0.08)';
                 nav.style.paddingTop = '14px';
                 nav.style.paddingBottom = '14px';
-            } else {
+            } else if (window.scrollY <= 60 && isScrolled) {
+                isScrolled = false;
                 nav.style.background = '';
                 nav.style.backdropFilter = '';
                 nav.style.boxShadow = '';
