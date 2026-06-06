@@ -99,10 +99,23 @@ jobs:
             </IfModule>
             EOF
 
+            # Find PHP CLI binary (IONOS uses versioned paths)
+            PHP=$(command -v php8.4 || command -v php8 || command -v php)
+            echo "Using PHP: $PHP ($($PHP -r 'echo PHP_VERSION;' 2>/dev/null))"
+
+            # Bootstrap .env from .env.production on first deploy
+            if [ ! -f "$APP/.env" ]; then
+              cp "$APP/.env.production" "$APP/.env"
+              $PHP "$APP/artisan" key:generate --force
+            fi
+
+            # Ensure SQLite database file exists
+            touch /homepages/19/d4299831726/htdocs/pepperinsalt/database/database.sqlite
+
             # Laravel post-deploy commands
             cd $APP
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan storage:link
+            $PHP artisan migrate --force
+            $PHP artisan config:cache
+            $PHP artisan route:cache
+            $PHP artisan view:cache
+            $PHP artisan storage:link
