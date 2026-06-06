@@ -1,0 +1,108 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_sqlite, fileinfo, exif
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install PHP dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Install Node dependencies and build assets
+        run: npm ci && npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 22 access-5020375910.webspace-host.com >> ~/.ssh/known_hosts
+
+      - name: Deploy files via rsync
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='node_modules' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            --exclude='tests' \
+            ./ a2153885@access-5020375910.webspace-host.com:/homepages/19/d4299831726/htdocs/pepperinsalt/
+
+      - name: Post-deploy setup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: access-5020375910.webspace-host.com
+          port: 22
+          username: a2153885
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            HTDOCS=/homepages/19/d4299831726/htdocs
+            APP=$HTDOCS/pepperinsalt
+
+            # Write htdocs/index.php to bootstrap Laravel from subdirectory
+            cat > $HTDOCS/index.php << 'EOF'
+            <?php
+            define('LARAVEL_START', microtime(true));
+            require __DIR__.'/pepperinsalt/vendor/autoload.php';
+            $app = require_once __DIR__.'/pepperinsalt/bootstrap/app.php';
+            $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+            $response = $kernel->handle($request = Illuminate\Http\Request::capture())->send();
+            $kernel->terminate($request, $response);
+            EOF
+
+            # Write htdocs/.htaccess to serve static assets and route PHP requests
+            cat > $HTDOCS/.htaccess << 'EOF'
+            <IfModule mod_rewrite.c>
+                Options -MultiViews -Indexes
+                RewriteEngine On
+
+                RewriteCond %{HTTP:Authorization} .
+                RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+                # Serve static files directly from pepperinsalt/public
+                RewriteCond %{DOCUMENT_ROOT}/pepperinsalt/public%{REQUEST_URI} -f
+                RewriteRule ^(.*)$ /pepperinsalt/public/$1 [L]
+
+                # Remove trailing slashes
+                RewriteCond %{REQUEST_FILENAME} !-d
+                RewriteCond %{REQUEST_URI} (.+)/$
+                RewriteRule ^ %1 [L,R=301]
+
+                # Route everything else through Laravel
+                RewriteCond %{REQUEST_FILENAME} !-d
+                RewriteCond %{REQUEST_FILENAME} !-f
+                RewriteRule ^ index.php [L]
+            </IfModule>
+            EOF
+
+            # Laravel post-deploy commands
+            cd $APP
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan storage:link
