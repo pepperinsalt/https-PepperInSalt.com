@@ -13,9 +13,15 @@ class HealthStatsWidget extends BaseWidget
     protected function getStats(): array
     {
         $latest = HealthRecord::orderByDesc('recorded_date')->first();
-        $weekAgo = HealthRecord::where('recorded_date', '>=', now()->subDays(7))->get();
-        $avgSteps = $weekAgo->avg('steps');
-        $avgSleep = $weekAgo->avg('sleep_hours');
+
+        // ⚡ Bolt: Calculate averages in the database to reduce memory usage and improve performance
+        // (prevents loading all records into memory just to calculate averages via collections)
+        $weekAgoStats = HealthRecord::where('recorded_date', '>=', now()->subDays(7))
+            ->selectRaw('AVG(steps) as avg_steps, AVG(sleep_hours) as avg_sleep')
+            ->first();
+
+        $avgSteps = $weekAgoStats?->avg_steps;
+        $avgSleep = $weekAgoStats?->avg_sleep;
 
         return [
             Stat::make('Steps (7-day avg)', $avgSteps ? number_format($avgSteps) : '—')

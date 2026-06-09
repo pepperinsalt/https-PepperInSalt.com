@@ -1,0 +1,3 @@
+## 2026-06-02 - Optimize Average Calculations using DB Aggregation
+**Learning:** Calculating averages using PHP Collections (`->get()->avg(...)`) pulls all records into memory, which can lead to memory exhaustion and performance degradation as the dataset grows. This is a common performance bottleneck in Laravel applications.
+**Action:** When calculating aggregates (like averages, sums, counts), always push the calculation to the database layer using `selectRaw()` or built-in aggregate functions (`avg()`, `sum()`, etc. directly on the query builder) instead of hydrating entire Eloquent models into a collection.
