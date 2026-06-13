@@ -1,0 +1,3 @@
+## 2025-03-01 - Avoid in-memory aggregations for Eloquent collections
+**Learning:** Found a performance bottleneck in `app/Filament/Widgets/HealthStatsWidget.php` where `->get()` was used before calling collection aggregations like `->avg()`. For large datasets, this fetches all records into PHP memory, creating significant overhead in both time (~98% slower) and memory (>99% more memory used) compared to executing aggregations directly in the database.
+**Action:** Always prefer database-level aggregation methods (e.g. `->selectRaw('AVG(col)')` or directly `->avg('col')` on the query builder) instead of hydrating full Eloquent models for simple statistics.
